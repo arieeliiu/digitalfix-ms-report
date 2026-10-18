@@ -1,0 +1,33 @@
+spring:
+  application:
+    name: digitalfix-ms-report
+  main:
+    web-application-type: none
+  rabbitmq:
+    addresses: ${RABBITMQ_ADDRESSES:rabbitmq1:5672,rabbitmq2:5672}
+    virtual-host: ${RABBITMQ_VHOST:digitalfix}
+    username: ${RABBITMQ_USERNAME}
+    password: ${RABBITMQ_PASSWORD}
+    connection-timeout: 5s
+    listener:
+      simple:
+        acknowledge-mode: manual
+        prefetch: 1
+        concurrency: 1
+        max-concurrency: 1
+        default-requeue-rejected: false
+        missing-queues-fatal: true
+        retry:
+          enabled: false
+report:
+  storage: ${REPORT_STORAGE:/data}
+  font: ${REPORT_FONT:/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf}
+  rabbit:
+    direct: cmd.direct
+    topic: cmd.topic
+    dlx: cmd.dead.dlx
+    queue: q.cmd.report
+    dlq: q.cmd.report.dlq
+    direct-key: report.gen
+    topic-key: report.*
+    dead-key: report.dead
