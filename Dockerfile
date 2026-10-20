@@ -1,22 +1,24 @@
-FROM eclipse-temurin:21-jdk AS compilacion
-WORKDIR /app
-COPY .mvn/ .mvn/
-COPY mvnw pom.xml ./
-RUN sed -i 's/\r$//' mvnw && chmod +x mvnw
-COPY src/ src/
-RUN ./mvnw -B -DskipTests package
+# Dockerfile estándar DigitalFix - report (consumidor, sin servidor web: sin EXPOSE)
+# Ajustes sobre el template: fuente DejaVu para PDFBox y UID fijo 10003,
+# dueño de los datos del volumen /data existente.
 
-FROM compilacion AS pruebas
-RUN apt-get update && apt-get install -y --no-install-recommends fonts-dejavu-core && rm -rf /var/lib/apt/lists/*
-ENTRYPOINT ["./mvnw", "-B", "test"]
+# ---------- build ----------
+FROM maven:3.9-eclipse-temurin-21 AS build
+WORKDIR /src
+COPY pom.xml .
+RUN mvn -q -B dependency:go-offline
+COPY src ./src
+RUN mvn -q -B package -DskipTests
 
-FROM eclipse-temurin:21-jre AS produccion
-RUN apt-get update && apt-get install -y --no-install-recommends fonts-dejavu-core \
-    && rm -rf /var/lib/apt/lists/* \
-    && groupadd --gid 10003 digitalfix \
-    && useradd --uid 10003 --gid digitalfix --no-create-home digitalfix \
-    && mkdir /data && chown digitalfix:digitalfix /data && chmod 700 /data
+# ---------- runtime ----------
+FROM eclipse-temurin:21-jre-alpine
+RUN apk add --no-cache font-dejavu \
+    && addgroup -S -g 10003 app && adduser -S -u 10003 -G app app \
+    && mkdir /data && chown app:app /data && chmod 700 /data
 WORKDIR /app
-COPY --from=compilacion /app/target/*.jar app.jar
-USER digitalfix
-ENTRYPOINT ["java", "-jar", "app.jar"]
+COPY --from=build /src/target/*.jar app.jar
+USER app
+
+ENV REPORT_FONT=/usr/share/fonts/dejavu/DejaVuSans.ttf
+ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError"
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]

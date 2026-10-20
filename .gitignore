@@ -6,3 +6,4 @@ evidencias-locales/
 .idea/
 *.log
 __pycache__/
+*.env
